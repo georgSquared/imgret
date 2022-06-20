@@ -1,12 +1,12 @@
 import json
 
 import numpy as np
-import typer
 from sklearn.metrics import pairwise_distances
-from sqlalchemy import Column, Integer, BLOB, Text, ARRAY, or_
+from sqlalchemy import Column, Integer, Text, or_, ForeignKey
+from sqlalchemy.orm import relationship
 
 from imgret.database import Base, ModelManager
-from imgret.utils import NumpyArrayEncoder, Distances, get_image_features
+from imgret.utils import NumpyArrayEncoder, get_image_features
 
 
 class Image(Base):
@@ -15,7 +15,9 @@ class Image(Base):
     id = Column(Integer, primary_key=True, index=True)
     raw_features = Column(Text)
     file_path = Column(Text)
-    file_name = Column(Text)
+    file_name = Column(Text, index=True)
+
+    ground_truth = relationship("GroundTruth", back_populates="image", lazy="subquery")
 
     @classmethod
     @property
@@ -107,3 +109,18 @@ class Image(Base):
     def features(self):
         feature_list = json.loads(self.raw_features)
         return np.array(feature_list)
+
+
+class GroundTruth(Base):
+    __tablename__ = "images_ground_truth"
+
+    id = Column(Integer, primary_key=True, index=True)
+    image_id = Column(Integer, ForeignKey(Image.id, ondelete="CASCADE"), index=True)
+    file_name = Column(Text)
+
+    image = relationship("Image", back_populates="ground_truth")
+
+    @classmethod
+    @property
+    def manager(self):
+        return ModelManager(self)
